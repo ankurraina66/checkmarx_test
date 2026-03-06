@@ -302,16 +302,21 @@ elseif ($medium -gt 0) {
 $scanLink = "$env:INPUT_BASEURL/main/myapps/$env:INPUT_APPLICATION_ID/scans/$scanID"
 
 # ==========================================
-# Calculate Scan Type Counts
+# Scan type counts
 # ==========================================
 
+$dastCount = $total
 $sastCount = 0
 $scaCount = 0
 $iacCount = 0
 
 foreach ($issue in $issues) {
+	
+	if ($issue.IssueType -match "DAST") {
+        $sastCount++
+    }
 
-    if ($issue.IssueType -match "SAST") {
+    elseif ($issue.IssueType -match "SAST") {
         $sastCount++
     }
 
@@ -335,12 +340,23 @@ $allIssues = Run-ASoC-GetAllIssuesFromScan $scanID
 
 foreach ($issue in $allIssues.Items) {
 
-    if ($issue.Url -match "api") {
-        $detectedApis++
+    $url = $issue.Url
+
+    if (!$url) {
+        $url = $issue.VulnerableUrl
     }
 
-    if ($issue.Url -match "api" -and ($issue.Severity -eq "High" -or $issue.Severity -eq "Critical")) {
-        $apisWithRisk++
+    if (!$url) {
+        continue
+    }
+
+    if ($url -match "/api/" -or $url -match "/rest/" -or $url -match "/v1/" -or $url -match "/v2/") {
+
+        $detectedApis++
+
+        if ($issue.Severity -eq "High" -or $issue.Severity -eq "Critical") {
+            $apisWithRisk++
+        }
     }
 }
 
@@ -359,12 +375,14 @@ $summary = @"
 
 <table>
 <tr>
+<th>🔴 Critical</th>
 <th>🔴 High</th>
 <th>🟡 Medium</th>
 <th>⚪ Low</th>
 <th>ℹ️ Info</th>
 </tr>
 <tr>
+<td align="center"><b>$critical</b></td>
 <td align="center"><b>$high</b></td>
 <td align="center"><b>$medium</b></td>
 <td align="center"><b>$low</b></td>
@@ -378,11 +396,13 @@ $summary = @"
 
 <table>
 <tr>
+<th>DAST</th>
 <th>SAST</th>
 <th>IaC Security</th>
 <th>SCA</th>
 </tr>
 <tr>
+<td align="center">$dastCount</td>
 <td align="center">$sastCount</td>
 <td align="center">$iacCount</td>
 <td align="center">$scaCount</td>
