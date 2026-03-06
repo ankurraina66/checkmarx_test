@@ -1018,90 +1018,121 @@ function Generate-SARIF($scanID) {
 
     $results = @()
     $rules = @{}
-    
+
     foreach ($issue in $issues.Items) {
 
-        # Safe values
-        $messageText = "$($issue.Name)"
+        # --------------------------------
+        # Safe message text extraction
+        # --------------------------------
 
-		if ([string]::IsNullOrWhiteSpace($messageText)) {
-			$messageText = "AppScan detected a vulnerability"
-		}
+        $messageText = ""
 
-		$ruleId = ($messageText -replace "[^a-zA-Z0-9 ]","") -replace " ","_"
+        if ($issue.Name) {
+            $messageText = [string]$issue.Name
+        }
+
+        if ([string]::IsNullOrWhiteSpace($messageText) -and $issue.IssueType) {
+            $messageText = [string]$issue.IssueType
+        }
+
+        if ([string]::IsNullOrWhiteSpace($messageText)) {
+            $messageText = "AppScan detected a vulnerability"
+        }
+
+        $messageText = $messageText.Trim()
+
+        # --------------------------------
+        # Rule ID
+        # --------------------------------
+
+        $ruleId = [string](($messageText -replace "[^a-zA-Z0-9 ]","") -replace " ","_")
+
+        if ([string]::IsNullOrWhiteSpace($ruleId)) {
+            $ruleId = "AppScanIssue"
+        }
+
+        # --------------------------------
+        # URL → File Path mapping
+        # --------------------------------
+
         $url = $issue.Url
 
-		if (!$url) {
-			$url = $issue.VulnerableUrl
-		}
+        if (!$url) { $url = $issue.VulnerableUrl }
+        if (!$url) { $url = $issue.Location }
 
-		if (!$url) {
-			$url = $issue.Location
-		}
+        $filePath = [string]"web/endpoint"
 
-		# Convert URL to GitHub-friendly path
-		$filePath = "web/endpoint"
-
-		if ($url) {
-
-		try {
-			$uri = [System.Uri]$url
-			$filePath = "web" + $uri.AbsolutePath
-		}
-		catch {
-			$filePath = "web/endpoint"
-		}
-
-	}
-
-        $line = 1
-        #if ($issue.Line -and ($issue.Line -as [int])) {
-         #   $line = [int]$issue.Line
-        #}
-
-        # Severity mapping
-        $level = "note"
-
-        switch ($issue.Severity) {
-			"Critical" { $level = "error" }
-			"High"     { $level = "error" }
-			"Medium"   { $level = "warning" }
-			"Low"      { $level = "note" }
-			"Informational" { $level = "note" }
-		}
-
-        # Add rule ONLY if not already added
-        if (-not $rules.ContainsKey($ruleId)) {
-            $rules[$ruleId] = @{
-                id = $ruleId
-                name = $ruleId
-                shortDescription = @{
-                    text = "$messageText"
-                }
+        if ($url) {
+            try {
+                $uri = [System.Uri]$url
+                $filePath = [string]("web" + $uri.AbsolutePath)
+            }
+            catch {
+                $filePath = [string]"web/endpoint"
             }
         }
 
-        # Add result
+        # --------------------------------
+        # Severity mapping
+        # --------------------------------
+
+        $level = "note"
+
+        switch ($issue.Severity) {
+            "Critical"      { $level = "error" }
+            "High"          { $level = "error" }
+            "Medium"        { $level = "warning" }
+            "Low"           { $level = "note" }
+            "Informational" { $level = "note" }
+        }
+
+        $level = [string]$level
+
+        # --------------------------------
+        # Add rule if not already added
+        # --------------------------------
+
+        if (-not $rules.ContainsKey($ruleId)) {
+
+            $rules[$ruleId] = @{
+                id = [string]$ruleId
+                name = [string]$ruleId
+                shortDescription = @{
+                    text = [string]$messageText
+                }
+            }
+
+        }
+
+        # --------------------------------
+        # Add SARIF result
+        # --------------------------------
+
         $results += @{
-            ruleId = $ruleId
-            level  = $level
+            ruleId = [string]$ruleId
+            level  = [string]$level
             message = @{
-                text = "$messageText detected at $filePath"
+                text = [string]"$messageText detected at $filePath"
             }
             locations = @(
                 @{
                     physicalLocation = @{
                         artifactLocation = @{
-                            uri = $filePath
+                            uri = [string]$filePath
                         }
                         region = @{
-                            startLine = $line
+                            startLine = 1
                         }
                     }
                 }
             )
         }
+
     }
+
+    # --------------------------------
+    # SARIF document structure
+    # --------------------------------
 
     $sarif = @{
         version = "2.1.0"
@@ -1120,7 +1151,11 @@ function Generate-SARIF($scanID) {
         )
     }
 
-    $sarif | ConvertTo-Json -Depth 15 | Out-File "appscan-results.sarif"
+    # --------------------------------
+    # Write SARIF file
+    # --------------------------------
+
+    $sarif | ConvertTo-Json -Depth 20 | Out-File "appscan-results.sarif"
 
     Write-Host "SARIF file generated successfully: appscan-results.sarif"
 }
