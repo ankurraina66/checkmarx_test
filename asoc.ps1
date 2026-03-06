@@ -265,45 +265,75 @@ function Run-ASoC-ScanCompletionChecker($scanID){
   }
 
   Write-Host ""
-  Write-Host "Scan completed."
+  $scanTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
-  # ==========================================
-  # Generate GitHub Workflow Summary
-  # ==========================================
+# Determine risk level
+$riskLevel = "Low Risk"
+if ($critical -gt 0 -or $high -gt 0) { $riskLevel = "High Risk 🔴" }
+elseif ($medium -gt 0) { $riskLevel = "Medium Risk 🟡" }
 
-  $issues = Run-ASoC-GetIssueCount $scanID "None"
+$scanTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
-  $critical = ($issues | Where-Object {$_.Severity -eq "Critical"}).Count
-  $high     = ($issues | Where-Object {$_.Severity -eq "High"}).Count
-  $medium   = ($issues | Where-Object {$_.Severity -eq "Medium"}).Count
-  $low      = ($issues | Where-Object {$_.Severity -eq "Low"}).Count
-  $info     = ($issues | Where-Object {$_.Severity -eq "Informational"}).Count
+$riskLevel = "Low Risk"
+$riskIcon = "🟢"
 
-  $total = $critical + $high + $medium + $low + $info
+if ($critical -gt 0 -or $high -gt 0) {
+    $riskLevel = "High Risk"
+    $riskIcon = "🔴"
+}
+elseif ($medium -gt 0) {
+    $riskLevel = "Medium Risk"
+    $riskIcon = "🟡"
+}
 
-  $summary = @"
-# HCL AppScan SAST Scan Summary
+$scanLink = "$env:INPUT_BASEURL/main/myapps/$env:INPUT_APPLICATION_ID/scans/$scanID"
 
-**Scan ID:** $scanID  
-**Application ID:** $env:INPUT_APPLICATION_ID  
+$summary = @"
+<h1>HCL AppScan Scan Summary</h1>
 
-## Total Vulnerabilities: $total
+<h2>$riskIcon $riskLevel</h2>
 
-| Severity | Count |
-|---------|------|
-| 🔴 Critical | $critical |
-| 🔴 High | $high |
-| 🟡 Medium | $medium |
-| ⚪ Low | $low |
-| ⚪ Info | $info |
+<b>Scan ID:</b> <a href="$scanLink">$scanID</a>  
+<b>Scan Time:</b> $scanTime  
+<b>Repository:</b> $env:GITHUB_REPOSITORY  
 
-Scan completed successfully.
+---
+
+<h2>Total Vulnerabilities: $total</h2>
+
+<table>
+<tr>
+<th>🔴 High</th>
+<th>🟡 Medium</th>
+<th>⚪ Low</th>
+<th>ℹ️ Info</th>
+</tr>
+<tr>
+<td align="center"><b>$high</b></td>
+<td align="center"><b>$medium</b></td>
+<td align="center"><b>$low</b></td>
+<td align="center"><b>$info</b></td>
+</tr>
+</table>
+
+---
+
+<h3>Scan Information</h3>
+
+<table>
+<tr><td><b>Scanner</b></td><td>HCL AppScan</td></tr>
+<tr><td><b>Scan Type</b></td><td>DAST</td></tr>
+<tr><td><b>Application ID</b></td><td>$env:INPUT_APPLICATION_ID</td></tr>
+<tr><td><b>Commit</b></td><td>$env:GITHUB_SHA</td></tr>
+</table>
+
+<i>Job summary generated at runtime</i>
 
 "@
 
-  if ($env:GITHUB_STEP_SUMMARY) {
-      $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
-  }
+if ($env:GITHUB_STEP_SUMMARY) {
+    $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+}
 
   # ==========================================
   # Generate SARIF for GitHub Code Scanning
@@ -885,7 +915,7 @@ function Generate-SARIF($scanID) {
             @{
                 tool = @{
                     driver = @{
-                        name = "HCL AppScan DAST"
+                        name = "HCL AppScan SAST"
                         informationUri = "https://www.hcltech.com/appscan"
                     }
                 }
@@ -896,23 +926,6 @@ function Generate-SARIF($scanID) {
 
     foreach ($issue in $issues.Items) {
 
-        # -----------------------------
-        # SAFE DEFAULT VALUES
-        # -----------------------------
-
-        $messageText = "AppScan finding"
-        if ($issue.Name) { $messageText = "$($issue.Name)" }
-
-        $fileUri = "unknown"
-        if ($issue.SourceFile) { $fileUri = "$($issue.SourceFile)" }
-
-        $lineNumber = 1
-        if ($issue.Line -and $issue.Line -gt 0) { $lineNumber = [int]$issue.Line }
-
-        # -----------------------------
-        # Severity Mapping
-        # -----------------------------
-
         $level = "note"
 
         switch ($issue.Severity) {
@@ -922,24 +935,20 @@ function Generate-SARIF($scanID) {
             "Low"      { $level = "note" }
         }
 
-        # -----------------------------
-        # SARIF Result
-        # -----------------------------
-
         $result = @{
-            ruleId = "$($issue.IssueType)"
+            ruleId = $issue.IssueType
             level  = $level
             message = @{
-                text = $messageText
+                text = $issue.Name
             }
             locations = @(
                 @{
                     physicalLocation = @{
                         artifactLocation = @{
-                            uri = $fileUri
+                            uri = $issue.SourceFile
                         }
                         region = @{
-                            startLine = $lineNumber
+                            startLine = $issue.Line
                         }
                     }
                 }
