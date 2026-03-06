@@ -1022,22 +1022,42 @@ function Generate-SARIF($scanID) {
     foreach ($issue in $issues.Items) {
 
         # Safe values
-        $ruleId = if ($issue.Name) { ($issue.Name -replace " ", "_") } else { "AppScan_Issue" }
-        $messageText = $issue.Name
-        $filePath = $issue.Url
+        $messageText = "$($issue.Name)"
 
-		if (!$filePath) {
-			$filePath = $issue.VulnerableUrl
+		if ([string]::IsNullOrWhiteSpace($messageText)) {
+			$messageText = "AppScan detected a vulnerability"
 		}
 
-		if (!$filePath) {
-			$filePath = "web-endpoint"
+		$ruleId = ($messageText -replace "[^a-zA-Z0-9 ]","") -replace " ","_"
+        $url = $issue.Url
+
+		if (!$url) {
+			$url = $issue.VulnerableUrl
 		}
+
+		if (!$url) {
+			$url = $issue.Location
+		}
+
+		# Convert URL to GitHub-friendly path
+		$filePath = "web/endpoint"
+
+		if ($url) {
+
+		try {
+			$uri = [System.Uri]$url
+			$filePath = "web" + $uri.AbsolutePath
+		}
+		catch {
+			$filePath = "web/endpoint"
+		}
+
+	}
 
         $line = 1
-        if ($issue.Line -and ($issue.Line -as [int])) {
-            $line = [int]$issue.Line
-        }
+        #if ($issue.Line -and ($issue.Line -as [int])) {
+         #   $line = [int]$issue.Line
+        #}
 
         # Severity mapping
         $level = "note"
@@ -1056,7 +1076,7 @@ function Generate-SARIF($scanID) {
                 id = $ruleId
                 name = $ruleId
                 shortDescription = @{
-                    text = $messageText
+                    text = "$messageText"
                 }
             }
         }
@@ -1066,7 +1086,7 @@ function Generate-SARIF($scanID) {
             ruleId = $ruleId
             level  = $level
             message = @{
-                text = $messageText
+                text = "$messageText detected at $filePath"
             }
             locations = @(
                 @{
