@@ -885,7 +885,7 @@ function Generate-SARIF($scanID) {
             @{
                 tool = @{
                     driver = @{
-                        name = "HCL AppScan SAST"
+                        name = "HCL AppScan DAST"
                         informationUri = "https://www.hcltech.com/appscan"
                     }
                 }
@@ -896,6 +896,23 @@ function Generate-SARIF($scanID) {
 
     foreach ($issue in $issues.Items) {
 
+        # -----------------------------
+        # SAFE DEFAULT VALUES
+        # -----------------------------
+
+        $messageText = "AppScan finding"
+        if ($issue.Name) { $messageText = "$($issue.Name)" }
+
+        $fileUri = "unknown"
+        if ($issue.SourceFile) { $fileUri = "$($issue.SourceFile)" }
+
+        $lineNumber = 1
+        if ($issue.Line -and $issue.Line -gt 0) { $lineNumber = [int]$issue.Line }
+
+        # -----------------------------
+        # Severity Mapping
+        # -----------------------------
+
         $level = "note"
 
         switch ($issue.Severity) {
@@ -905,20 +922,24 @@ function Generate-SARIF($scanID) {
             "Low"      { $level = "note" }
         }
 
+        # -----------------------------
+        # SARIF Result
+        # -----------------------------
+
         $result = @{
-            ruleId = $issue.IssueType
+            ruleId = "$($issue.IssueType)"
             level  = $level
             message = @{
-                text = $issue.Name
+                text = $messageText
             }
             locations = @(
                 @{
                     physicalLocation = @{
                         artifactLocation = @{
-                            uri = $issue.SourceFile
+                            uri = $fileUri
                         }
                         region = @{
-                            startLine = $issue.Line
+                            startLine = $lineNumber
                         }
                     }
                 }
