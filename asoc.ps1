@@ -909,23 +909,22 @@ function Generate-SARIF($scanID) {
 
     $issues = Run-ASoC-GetAllIssuesFromScan $scanID
 
-    $sarif = @{
-        version = "2.1.0"
-        runs = @(
-            @{
-                tool = @{
-                    driver = @{
-                        name = "HCL AppScan SAST"
-                        informationUri = "https://www.hcltech.com/appscan"
-                    }
-                }
-                results = @()
-            }
-        )
-    }
+    $results = @()
+    $rules = @()
 
     foreach ($issue in $issues.Items) {
 
+        # Ensure safe values
+        $ruleId = if ($issue.IssueType) { $issue.IssueType } else { "AppScanIssue" }
+        $messageText = if ($issue.Name) { "$($issue.Name)" } else { "AppScan detected a vulnerability." }
+        $filePath = if ($issue.SourceFile) { "$($issue.SourceFile)" } else { "unknown-file" }
+        $line = 1
+
+        if ($issue.Line -and ($issue.Line -as [int])) {
+            $line = [int]$issue.Line
+        }
+
+        # Severity mapping for GitHub
         $level = "note"
 
         switch ($issue.Severity) {
@@ -933,32 +932,58 @@ function Generate-SARIF($scanID) {
             "High"     { $level = "error" }
             "Medium"   { $level = "warning" }
             "Low"      { $level = "note" }
+            default    { $level = "note" }
         }
 
-        $result = @{
-            ruleId = $issue.IssueType
-            level  = $level
+        # Add rule definition
+        $rules += @{
+            id = "$ruleId"
+            name = "$ruleId"
+            shortDescription = @{
+                text = "$messageText"
+            }
+        }
+
+        # Add result
+        $results += @{
+            ruleId = "$ruleId"
+            level  = "$level"
             message = @{
-                text = $issue.Name
+                text = "$messageText"
             }
             locations = @(
                 @{
                     physicalLocation = @{
                         artifactLocation = @{
-                            uri = $issue.SourceFile
+                            uri = "$filePath"
                         }
                         region = @{
-                            startLine = $issue.Line
+                            startLine = $line
                         }
                     }
                 }
             )
         }
-
-        $sarif.runs[0].results += $result
     }
 
-    $sarif | ConvertTo-Json -Depth 10 | Out-File "appscan-results.sarif"
+    $sarif = @{
+        version = "2.1.0"
+        `$schema = "https://json.schemastore.org/sarif-2.1.0.json"
+        runs = @(
+            @{
+                tool = @{
+                    driver = @{
+                        name = "HCL AppScan"
+                        informationUri = "https://www.hcltech.com/appscan"
+                        rules = $rules
+                    }
+                }
+                results = $results
+            }
+        )
+    }
 
-    Write-Host "SARIF file created: appscan-results.sarif"
+    $sarif | ConvertTo-Json -Depth 15 | Out-File "appscan-results.sarif"
+
+    Write-Host "SARIF file generated successfully: appscan-results.sarif"
 }
