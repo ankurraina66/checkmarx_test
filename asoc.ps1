@@ -1141,7 +1141,7 @@ function Generate-SARIF($scanID) {
             @{
                 tool = @{
                     driver = @{
-                        name = "HCL AppScan DAST"
+                        name = "HCL AppScan"
                         informationUri = "https://www.hcltech.com/appscan"
                         rules = $rules.Values
                     }
