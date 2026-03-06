@@ -1,0 +1,39 @@
+name: "HCL AppScan DAST - basic"
+
+on:
+  workflow_dispatch
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run AppScan 360 DAST Scan
+        uses: ankurraina66/checkmarx_test@main
+     
+        with:
+          baseurl: https://cloud.appscan.com
+          asoc_key: ${{ secrets.ASOC_KEY }}
+          asoc_secret: ${{ secrets.ASOC_SECRET }}
+          application_id: e17e1275-c881-43f4-af46-4b4e5c57114f
+          dynamic_scan_type: dast
+          starting_URL: 'https://demo.testfire.net?mode=demo'
+          login_method: userpass
+          login_user: jsmith
+          login_password: demo1234
+          network: public
+          fail_for_noncompliance: false
+          wait_for_analysis: true
+          
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: appscan-results.sarif
+      - uses: actions/upload-artifact@v4
+        name: Upload HCL AppScan HTML Report to Github Artifacts
+        with:
+          name: AppScan Security Scan HTML Report
+          path: '**/AppScan*.html'
+        if: success() || failure()
