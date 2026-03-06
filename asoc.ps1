@@ -265,7 +265,20 @@ function Run-ASoC-ScanCompletionChecker($scanID){
   }
 
   Write-Host ""
-  $scanTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+# ==========================================
+# Collect vulnerability statistics
+# ==========================================
+
+$issues = Run-ASoC-GetIssueCount $scanID "None"
+
+$critical = ($issues | Where-Object {$_.Severity -eq "Critical"}).Count
+$high     = ($issues | Where-Object {$_.Severity -eq "High"}).Count
+$medium   = ($issues | Where-Object {$_.Severity -eq "Medium"}).Count
+$low      = ($issues | Where-Object {$_.Severity -eq "Low"}).Count
+$info     = ($issues | Where-Object {$_.Severity -eq "Informational"}).Count
+
+$total = $critical + $high + $medium + $low + $info
+$scanTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
 # Determine risk level
 $riskLevel = "Low Risk"
@@ -287,6 +300,49 @@ elseif ($medium -gt 0) {
 }
 
 $scanLink = "$env:INPUT_BASEURL/main/myapps/$env:INPUT_APPLICATION_ID/scans/$scanID"
+
+# ==========================================
+# Calculate Scan Type Counts
+# ==========================================
+
+$sastCount = 0
+$scaCount = 0
+$iacCount = 0
+
+foreach ($issue in $issues) {
+
+    if ($issue.IssueType -match "SAST") {
+        $sastCount++
+    }
+
+    elseif ($issue.IssueType -match "Dependency" -or $issue.IssueType -match "SCA") {
+        $scaCount++
+    }
+
+    elseif ($issue.IssueType -match "IaC") {
+        $iacCount++
+    }
+}
+
+# ==========================================
+# API Security Metrics
+# ==========================================
+
+$detectedApis = 0
+$apisWithRisk = 0
+
+$allIssues = Run-ASoC-GetAllIssuesFromScan $scanID
+
+foreach ($issue in $allIssues.Items) {
+
+    if ($issue.Url -match "api") {
+        $detectedApis++
+    }
+
+    if ($issue.Url -match "api" -and ($issue.Severity -eq "High" -or $issue.Severity -eq "Critical")) {
+        $apisWithRisk++
+    }
+}
 
 $summary = @"
 <h1>HCL AppScan Scan Summary</h1>
@@ -318,6 +374,38 @@ $summary = @"
 
 ---
 
+<h3>Vulnerabilities per Scan Type</h3>
+
+<table>
+<tr>
+<th>SAST</th>
+<th>IaC Security</th>
+<th>SCA</th>
+</tr>
+<tr>
+<td align="center">$sastCount</td>
+<td align="center">$iacCount</td>
+<td align="center">$scaCount</td>
+</tr>
+</table>
+
+---
+
+<h3>API Security</h3>
+
+<table>
+<tr>
+<th>Detected APIs</th>
+<th>APIs with risk</th>
+</tr>
+<tr>
+<td align="center">$detectedApis</td>
+<td align="center">$apisWithRisk</td>
+</tr>
+</table>
+
+---
+
 <h3>Scan Information</h3>
 
 <table>
@@ -328,7 +416,6 @@ $summary = @"
 </table>
 
 <i>Job summary generated at runtime</i>
-
 "@
 
 if ($env:GITHUB_STEP_SUMMARY) {
