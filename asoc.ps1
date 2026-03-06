@@ -967,21 +967,21 @@ function Generate-SARIF($scanID) {
     }
 
     $sarif = @{
-        version = "2.1.0"
-        `$schema = "https://json.schemastore.org/sarif-2.1.0.json"
-        runs = @(
-            @{
-                tool = @{
-                    driver = @{
-                        name = "HCL AppScan"
-                        informationUri = "https://www.hcltech.com/appscan"
-                        rules = $rules
-                    }
+    version = "2.1.0"
+    '$schema' = "https://json.schemastore.org/sarif-2.1.0.json"
+    runs = @(
+        @{
+            tool = @{
+                driver = @{
+                    name = "HCL AppScan"
+                    informationUri = "https://www.hcltech.com/appscan"
+                    rules = $rules
                 }
-                results = $results
             }
-        )
-    }
+            results = $results
+        }
+    )
+}
 
     $sarif | ConvertTo-Json -Depth 15 | Out-File "appscan-results.sarif"
 
