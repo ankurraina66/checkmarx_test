@@ -1022,9 +1022,17 @@ function Generate-SARIF($scanID) {
     foreach ($issue in $issues.Items) {
 
         # Safe values
-        $ruleId = if ($issue.IssueType) { "$($issue.IssueType)" } else { "AppScanIssue" }
-        $messageText = if ($issue.Name) { "$($issue.Name)" } else { "AppScan detected a vulnerability." }
-        $filePath = if ($issue.SourceFile) { "$($issue.SourceFile)" } else { "unknown-file" }
+        $ruleId = if ($issue.Name) { ($issue.Name -replace " ", "_") } else { "AppScan_Issue" }
+        $messageText = $issue.Name
+        $filePath = $issue.Url
+
+		if (!$filePath) {
+			$filePath = $issue.VulnerableUrl
+		}
+
+		if (!$filePath) {
+			$filePath = "web-endpoint"
+		}
 
         $line = 1
         if ($issue.Line -and ($issue.Line -as [int])) {
@@ -1035,11 +1043,12 @@ function Generate-SARIF($scanID) {
         $level = "note"
 
         switch ($issue.Severity) {
-            "Critical" { $level = "error" }
-            "High"     { $level = "error" }
-            "Medium"   { $level = "warning" }
-            "Low"      { $level = "note" }
-        }
+			"Critical" { $level = "error" }
+			"High"     { $level = "error" }
+			"Medium"   { $level = "warning" }
+			"Low"      { $level = "note" }
+			"Informational" { $level = "note" }
+		}
 
         # Add rule ONLY if not already added
         if (-not $rules.ContainsKey($ruleId)) {
