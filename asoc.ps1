@@ -271,11 +271,11 @@ function Run-ASoC-ScanCompletionChecker($scanID){
 
 $issues = Run-ASoC-GetIssueCount $scanID "None"
 
-$critical = ($issues | Where-Object {$_.Severity -eq "Critical"}).Count
-$high     = ($issues | Where-Object {$_.Severity -eq "High"}).Count
-$medium   = ($issues | Where-Object {$_.Severity -eq "Medium"}).Count
-$low      = ($issues | Where-Object {$_.Severity -eq "Low"}).Count
-$info     = ($issues | Where-Object {$_.Severity -eq "Informational"}).Count
+$critical = ($issues | Where-Object {$_.Severity -eq "Critical"} | Measure-Object -Property N -Sum).Sum
+$high     = ($issues | Where-Object {$_.Severity -eq "High"} | Measure-Object -Property N -Sum).Sum
+$medium   = ($issues | Where-Object {$_.Severity -eq "Medium"} | Measure-Object -Property N -Sum).Sum
+$low      = ($issues | Where-Object {$_.Severity -eq "Low"} | Measure-Object -Property N -Sum).Sum
+$info     = ($issues | Where-Object {$_.Severity -eq "Informational"} | Measure-Object -Property N -Sum).Sum
 
 $total = $critical + $high + $medium + $low + $info
 $scanTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
