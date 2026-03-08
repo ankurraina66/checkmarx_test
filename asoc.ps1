@@ -363,7 +363,29 @@ foreach ($issue in $allIssues.Items) {
 $summary = @"
 <h1>HCL AppScan Scan Summary</h1>
 
-<h2>$riskIcon $riskLevel</h2>
+# ==========================================
+# Determine highest severity risk level
+# ==========================================
+
+$riskLevel = "Informational"
+$riskIcon  = "⚪"
+
+if ($critical -gt 0) {
+    $riskLevel = "Critical Risk"
+    $riskIcon  = "🔴"
+}
+elseif ($high -gt 0) {
+    $riskLevel = "High Risk"
+    $riskIcon  = "🟠"
+}
+elseif ($medium -gt 0) {
+    $riskLevel = "Medium Risk"
+    $riskIcon  = "🟡"
+}
+elseif ($low -gt 0) {
+    $riskLevel = "Low Risk"
+    $riskIcon  = "🟢"
+}
 
 <b>Scan ID:</b> <a href="$scanLink">$scanID</a>  
 <b>Scan Time:</b> $scanTime  
