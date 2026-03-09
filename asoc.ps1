@@ -280,23 +280,28 @@ $info     = ($issues | Where-Object {$_.Severity -eq "Informational"} | Measure-
 $total = $critical + $high + $medium + $low + $info
 $scanTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
-# Determine risk level
-$riskLevel = "Low Risk"
-if ($critical -gt 0 -or $high -gt 0) { $riskLevel = "High Risk 🔴" }
-elseif ($medium -gt 0) { $riskLevel = "Medium Risk 🟡" }
+# ==========================================
+# Determine highest severity risk level
+# ==========================================
 
-$scanTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+$riskLevel = "Informational"
+$riskIcon = "⚪"
 
-$riskLevel = "Low Risk"
-$riskIcon = "🟢"
-
-if ($critical -gt 0 -or $high -gt 0) {
-    $riskLevel = "High Risk"
+if ($critical -gt 0) {
+    $riskLevel = "Critical Risk"
     $riskIcon = "🔴"
+}
+elseif ($high -gt 0) {
+    $riskLevel = "High Risk"
+    $riskIcon = "🟠"
 }
 elseif ($medium -gt 0) {
     $riskLevel = "Medium Risk"
     $riskIcon = "🟡"
+}
+elseif ($low -gt 0) {
+    $riskLevel = "Low Risk"
+    $riskIcon = "🟢"
 }
 
 $scanLink = "$env:INPUT_BASEURL/main/myapps/$env:INPUT_APPLICATION_ID/scans/$scanID"
@@ -313,7 +318,7 @@ $iacCount = 0
 foreach ($issue in $issues) {
 	
 	if ($issue.IssueType -match "DAST") {
-        $dastCount++
+        $sastCount++
     }
 
     elseif ($issue.IssueType -match "SAST") {
@@ -363,29 +368,7 @@ foreach ($issue in $allIssues.Items) {
 $summary = @"
 <h1>HCL AppScan Scan Summary</h1>
 
-# ==========================================
-# Determine highest severity risk level
-# ==========================================
-
-$riskLevel = "Informational"
-$riskIcon  = "⚪"
-
-if ($critical -gt 0) {
-    $riskLevel = "Critical Risk"
-    $riskIcon  = "🔴"
-}
-elseif ($high -gt 0) {
-    $riskLevel = "High Risk"
-    $riskIcon  = "🟠"
-}
-elseif ($medium -gt 0) {
-    $riskLevel = "Medium Risk"
-    $riskIcon  = "🟡"
-}
-elseif ($low -gt 0) {
-    $riskLevel = "Low Risk"
-    $riskIcon  = "🟢"
-}
+<h2>$riskIcon $riskLevel</h2>
 
 <b>Scan ID:</b> <a href="$scanLink">$scanID</a>  
 <b>Scan Time:</b> $scanTime  
