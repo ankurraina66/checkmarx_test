@@ -313,7 +313,7 @@ $iacCount = 0
 foreach ($issue in $issues) {
 	
 	if ($issue.IssueType -match "DAST") {
-        $sastCount++
+        $dastCount++
     }
 
     elseif ($issue.IssueType -match "SAST") {
