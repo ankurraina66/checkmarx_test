@@ -1142,18 +1142,21 @@ function Generate-SARIF($scanID) {
     $sarif = @{
         version = "2.1.0"
         '$schema' = "https://json.schemastore.org/sarif-2.1.0.json"
-        runs = @(
-            @{
-                tool = @{
-                    driver = @{
-                        name = "HCL AppScan"
-                        informationUri = "https://www.hcltech.com/appscan"
-                        rules = $rules.Values
-                    }
-                }
-                results = $results
-            }
-        )
+        $runs = @{
+    		tool = @{
+		        driver = @{
+		            name = "HCL AppScan DAST"
+		            version = "1.0"
+		            informationUri = "https://www.hcltech.com/appscan"
+		            rules = $rules.Values
+		        }
+    }
+    	automationDetails = @{
+        id = "appscan-dast-${env:GITHUB_WORKFLOW}"
+    }
+
+    	results = $results
+		}
     }
 
     # --------------------------------
