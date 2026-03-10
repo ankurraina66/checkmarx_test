@@ -6,8 +6,11 @@ Write-Host "Starting GitHub Code Scanning upload..."
 
 $appId = $env:GH_APP_ID
 $installationId = $env:GH_APP_INSTALLATION_ID
-$privateKey = $env:GH_APP_PRIVATE_KEY -replace "\\n", "`n"
-$rsa.ImportFromPem($privateKey)
+$privateKey = $env:GH_APP_PRIVATE_KEY
+
+if ($privateKey) {
+    $privateKey = $privateKey -replace "\\n","`n"
+}
 
 if (!$appId -or !$installationId -or !$privateKey) {
     Write-Error "Missing GitHub App environment variables"
@@ -17,17 +20,12 @@ if (!$appId -or !$installationId -or !$privateKey) {
 Write-Host "GitHub App ID: $appId"
 Write-Host "Installation ID: $installationId"
 
-if (!$privateKey) {
-    Write-Error "Private key not loaded"
-    exit 1
-}
-
 # -----------------------------
-# Create JWT for GitHub App
+# Create JWT
 # -----------------------------
 
 $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-$exp = $now + 540
+$exp = $now + 600
 
 $header = @{
     alg = "RS256"
@@ -43,7 +41,7 @@ $payload = @{
 function Base64UrlEncode($input) {
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($input)
     $base64 = [Convert]::ToBase64String($bytes)
-    $base64.TrimEnd("=") -replace "\+", "-" -replace "/", "_"
+    return $base64.TrimEnd("=") -replace "\+", "-" -replace "/", "_"
 }
 
 $headerEncoded = Base64UrlEncode ($header | ConvertTo-Json -Compress)
@@ -51,7 +49,10 @@ $payloadEncoded = Base64UrlEncode ($payload | ConvertTo-Json -Compress)
 
 $unsignedToken = "$headerEncoded.$payloadEncoded"
 
-# Load private key
+# -----------------------------
+# Sign JWT
+# -----------------------------
+
 $rsa = [System.Security.Cryptography.RSA]::Create()
 $rsa.ImportFromPem($privateKey)
 
@@ -69,7 +70,7 @@ $jwt = "$unsignedToken.$signature"
 Write-Host "JWT generated"
 
 # -----------------------------
-# Exchange JWT for installation token
+# Get installation token
 # -----------------------------
 
 $tokenResponse = Invoke-RestMethod `
@@ -78,11 +79,21 @@ $tokenResponse = Invoke-RestMethod `
     -Headers @{
         Authorization = "Bearer $jwt"
         Accept = "application/vnd.github+json"
+        "X-GitHub-Api-Version" = "2022-11-28"
     }
 
 $installationToken = $tokenResponse.token
 
 Write-Host "Installation token generated"
+
+# -----------------------------
+# Validate SARIF file
+# -----------------------------
+
+if (!(Test-Path $SarifFile)) {
+    Write-Error "SARIF file not found: $SarifFile"
+    exit 1
+}
 
 # -----------------------------
 # Compress SARIF
@@ -95,6 +106,7 @@ $outStream = [System.IO.File]::Create($gzipFile)
 $gzipStream = New-Object System.IO.Compression.GzipStream($outStream, [System.IO.Compression.CompressionMode]::Compress)
 
 $inStream.CopyTo($gzipStream)
+
 $gzipStream.Close()
 $outStream.Close()
 $inStream.Close()
@@ -102,7 +114,7 @@ $inStream.Close()
 Write-Host "SARIF compressed"
 
 # -----------------------------
-# Base64 encode SARIF
+# Encode SARIF
 # -----------------------------
 
 $bytes = [System.IO.File]::ReadAllBytes($gzipFile)
@@ -111,7 +123,7 @@ $sarifEncoded = [Convert]::ToBase64String($bytes)
 Write-Host "SARIF encoded"
 
 # -----------------------------
-# Upload SARIF to GitHub
+# Upload SARIF
 # -----------------------------
 
 $body = @{
@@ -129,6 +141,7 @@ $response = Invoke-RestMethod `
     -Headers @{
         Authorization = "Bearer $installationToken"
         Accept = "application/vnd.github+json"
+        "X-GitHub-Api-Version" = "2022-11-28"
     } `
     -Body $body `
     -ContentType "application/json"
