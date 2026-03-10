@@ -66,6 +66,24 @@ $jwt = "$unsignedToken.$signature"
 Write-Host "JWT generated"
 
 # -----------------------------
+# DEBUG: Verify JWT works
+# -----------------------------
+
+Write-Host "Validating JWT with GitHub..."
+
+$jwtTest = Invoke-RestMethod `
+  -Uri "https://api.github.com/app" `
+  -Headers @{
+      Authorization = "Bearer $jwt"
+      Accept = "application/vnd.github+json"
+      "X-GitHub-Api-Version" = "2022-11-28"
+  }
+
+Write-Host "JWT is valid for GitHub App:"
+Write-Host "App ID:" $jwtTest.id
+Write-Host "App Name:" $jwtTest.name
+
+# -----------------------------
 # Get installation token
 # -----------------------------
 
