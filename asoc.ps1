@@ -224,6 +224,7 @@ function Run-ASoC-DAST{
 }
 
 function Run-ASoC-ScanCompletionChecker($scanID){
+
   $params = @{
     Uri         = "$global:BaseAPIUrl/Scans/$scanID/Executions"
     Method      = 'GET'
@@ -232,36 +233,226 @@ function Run-ASoC-ScanCompletionChecker($scanID){
       Authorization = "Bearer $global:BearerToken"
     }
   }
-  #DEBUG
-  Write-Debug ($params | Format-Table | Out-String)
+
+  Write-Host "Waiting for Scan Completion..." -NoNewLine
 
   $counterTimerInSeconds = 0
-  Write-Host "Waiting for Scan Completion..." -NoNewLine
   $waitIntervalInSeconds = 15
+  $scan_status = ""
 
   while(($scan_status -ne "Ready") -and ($counterTimerInSeconds -lt $env:INPUT_WAIT_FOR_ANALYSIS_TIMEOUT_MINUTES*60)){
-    #$output = Invoke-RestMethod @params
-	if ($global:SkipCert) {
-		$output = Invoke-RestMethod @params -SkipCertificateCheck
-	} else {
-		$output = Invoke-RestMethod @params
-	}
-	$scan_status = $output.Status
+
+    if ($global:SkipCert) {
+        $output = Invoke-RestMethod @params -SkipCertificateCheck
+    } else {
+        $output = Invoke-RestMethod @params
+    }
+
+    $scan_status = $output.Status
+
     Start-Sleep -Seconds $waitIntervalInSeconds
-    $counterTimerInSeconds = $counterTimerInSeconds + $waitIntervalInSeconds
+    $counterTimerInSeconds += $waitIntervalInSeconds
     Write-Host "." -NoNewline
 
     if($scan_status -eq 'Failed'){
-      $error_message = $output.UserMessage
-      $scanOverviewPage = $env:INPUT_BASEURL + "/main/myapps/" + $env:INPUT_APPLICATION_ID + "/scans/" + $global:scanId
 
-      Write-Error "Scan status: $scan_status. Scan UserMessage: $error_message. For More detail, see Execution log available at your scan view: $scanOverviewPage"
-      
+      $error_message = $output.UserMessage
+      $scanOverviewPage = $env:INPUT_BASEURL + "/main/myapps/" + $env:INPUT_APPLICATION_ID + "/scans/" + $scanID
+
+      Write-Error "Scan status: $scan_status. Scan UserMessage: $error_message. See: $scanOverviewPage"
       Exit 1
     }
-
   }
+
   Write-Host ""
+# ==========================================
+# Collect vulnerability statistics
+# ==========================================
+
+$issues = Run-ASoC-GetIssueCount $scanID "None"
+
+$critical = ($issues | Where-Object {$_.Severity -eq "Critical"} | Measure-Object -Property N -Sum).Sum
+$high     = ($issues | Where-Object {$_.Severity -eq "High"} | Measure-Object -Property N -Sum).Sum
+$medium   = ($issues | Where-Object {$_.Severity -eq "Medium"} | Measure-Object -Property N -Sum).Sum
+$low      = ($issues | Where-Object {$_.Severity -eq "Low"} | Measure-Object -Property N -Sum).Sum
+$info     = ($issues | Where-Object {$_.Severity -eq "Informational"} | Measure-Object -Property N -Sum).Sum
+
+$total = $critical + $high + $medium + $low + $info
+$scanTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+
+# ==========================================
+# Determine highest severity risk level
+# ==========================================
+
+$riskLevel = "Informational"
+$riskIcon = "⚪"
+
+if ($critical -gt 0) {
+    $riskLevel = "Critical Risk"
+    $riskIcon = "🔴"
+}
+elseif ($high -gt 0) {
+    $riskLevel = "High Risk"
+    $riskIcon = "🟠"
+}
+elseif ($medium -gt 0) {
+    $riskLevel = "Medium Risk"
+    $riskIcon = "🟡"
+}
+elseif ($low -gt 0) {
+    $riskLevel = "Low Risk"
+    $riskIcon = "🟢"
+}
+
+$scanLink = "$env:INPUT_BASEURL/main/myapps/$env:INPUT_APPLICATION_ID/scans/$scanID"
+
+# ==========================================
+# Scan type counts
+# ==========================================
+
+$dastCount = $total
+$sastCount = 0
+$scaCount = 0
+$iacCount = 0
+
+foreach ($issue in $issues) {
+	
+	if ($issue.IssueType -match "DAST") {
+        $sastCount++
+    }
+
+    elseif ($issue.IssueType -match "SAST") {
+        $sastCount++
+    }
+
+    elseif ($issue.IssueType -match "Dependency" -or $issue.IssueType -match "SCA") {
+        $scaCount++
+    }
+
+    elseif ($issue.IssueType -match "IaC") {
+        $iacCount++
+    }
+}
+
+# ==========================================
+# API Security Metrics
+# ==========================================
+
+$detectedApis = 0
+$apisWithRisk = 0
+
+$allIssues = Run-ASoC-GetAllIssuesFromScan $scanID
+
+foreach ($issue in $allIssues.Items) {
+
+    $url = $issue.Url
+
+    if (!$url) {
+        $url = $issue.VulnerableUrl
+    }
+
+    if (!$url) {
+        continue
+    }
+
+    if ($url -match "/api/" -or $url -match "/rest/" -or $url -match "/v1/" -or $url -match "/v2/") {
+
+        $detectedApis++
+
+        if ($issue.Severity -eq "High" -or $issue.Severity -eq "Critical") {
+            $apisWithRisk++
+        }
+    }
+}
+
+$summary = @"
+<h1>HCL AppScan Scan Summary</h1>
+
+<h2>$riskIcon $riskLevel</h2>
+
+<b>Scan ID:</b> <a href="$scanLink">$scanID</a>  
+<b>Scan Time:</b> $scanTime  
+<b>Repository:</b> $env:GITHUB_REPOSITORY  
+
+---
+
+<h2>Total Vulnerabilities: $total</h2>
+
+<table>
+<tr>
+<th>🔴 Critical</th>
+<th>🔴 High</th>
+<th>🟡 Medium</th>
+<th>⚪ Low</th>
+<th>ℹ️ Info</th>
+</tr>
+<tr>
+<td align="center"><b>$critical</b></td>
+<td align="center"><b>$high</b></td>
+<td align="center"><b>$medium</b></td>
+<td align="center"><b>$low</b></td>
+<td align="center"><b>$info</b></td>
+</tr>
+</table>
+
+---
+
+<h3>Vulnerabilities per Scan Type</h3>
+
+<table>
+<tr>
+<th>DAST</th>
+<th>SAST</th>
+<th>IaC Security</th>
+<th>SCA</th>
+</tr>
+<tr>
+<td align="center">$dastCount</td>
+<td align="center">$sastCount</td>
+<td align="center">$iacCount</td>
+<td align="center">$scaCount</td>
+</tr>
+</table>
+
+---
+
+<h3>API Security</h3>
+
+<table>
+<tr>
+<th>Detected APIs</th>
+<th>APIs with risk</th>
+</tr>
+<tr>
+<td align="center">$detectedApis</td>
+<td align="center">$apisWithRisk</td>
+</tr>
+</table>
+
+---
+
+<h3>Scan Information</h3>
+
+<table>
+<tr><td><b>Scanner</b></td><td>HCL AppScan</td></tr>
+<tr><td><b>Scan Type</b></td><td>DAST</td></tr>
+<tr><td><b>Application ID</b></td><td>$env:INPUT_APPLICATION_ID</td></tr>
+<tr><td><b>Commit</b></td><td>$env:GITHUB_SHA</td></tr>
+</table>
+
+<i>Job summary generated at runtime</i>
+"@
+
+if ($env:GITHUB_STEP_SUMMARY) {
+    $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+}
+
+  # ==========================================
+  # Generate SARIF for GitHub Code Scanning
+  # ==========================================
+
+  Generate-SARIF $scanID
+
 }
 function Run-ASoC-GenerateReport ($scanID) {
 
@@ -822,4 +1013,154 @@ function Create-EphemeralPresenceWithDocker{
     Write-Error "Ephemeral Presence creation failed. Presence status = $presenceStatus"
     exit 1
   }
+}
+
+function Generate-SARIF($scanID) {
+
+    Write-Host "Generating SARIF report for GitHub Code Scanning..."
+
+    $issues = Run-ASoC-GetAllIssuesFromScan $scanID
+
+    $results = @()
+    $rules = @{}
+
+    foreach ($issue in $issues.Items) {
+
+        # --------------------------------
+        # Safe message text extraction
+        # --------------------------------
+
+        $messageText = ""
+
+        if ($issue.Name) {
+            $messageText = [string]$issue.Name
+        }
+
+        if ([string]::IsNullOrWhiteSpace($messageText) -and $issue.IssueType) {
+            $messageText = [string]$issue.IssueType
+        }
+
+        if ([string]::IsNullOrWhiteSpace($messageText)) {
+            $messageText = "AppScan detected a vulnerability"
+        }
+
+        $messageText = $messageText.Trim()
+
+        # --------------------------------
+        # Rule ID
+        # --------------------------------
+
+        $ruleId = [string](($messageText -replace "[^a-zA-Z0-9 ]","") -replace " ","_")
+
+        if ([string]::IsNullOrWhiteSpace($ruleId)) {
+            $ruleId = "AppScanIssue"
+        }
+
+        # --------------------------------
+        # URL → File Path mapping
+        # --------------------------------
+
+        $url = $issue.Url
+
+        if (!$url) { $url = $issue.VulnerableUrl }
+        if (!$url) { $url = $issue.Location }
+
+        $filePath = [string]"web/endpoint"
+
+        if ($url) {
+            try {
+                $uri = [System.Uri]$url
+                $filePath = [string]("web" + $uri.AbsolutePath)
+            }
+            catch {
+                $filePath = [string]"web/endpoint"
+            }
+        }
+
+        # --------------------------------
+        # Severity mapping
+        # --------------------------------
+
+        $level = "note"
+
+        switch ($issue.Severity) {
+            "Critical"      { $level = "error" }
+            "High"          { $level = "error" }
+            "Medium"        { $level = "warning" }
+            "Low"           { $level = "note" }
+            "Informational" { $level = "note" }
+        }
+
+        $level = [string]$level
+
+        # --------------------------------
+        # Add rule if not already added
+        # --------------------------------
+
+        if (-not $rules.ContainsKey($ruleId)) {
+
+            $rules[$ruleId] = @{
+                id = [string]$ruleId
+                name = [string]$ruleId
+                shortDescription = @{
+                    text = [string]$messageText
+                }
+            }
+
+        }
+
+        # --------------------------------
+        # Add SARIF result
+        # --------------------------------
+
+        $results += @{
+            ruleId = [string]$ruleId
+            level  = [string]$level
+            message = @{
+                text = [string]"$messageText detected at $filePath"
+            }
+            locations = @(
+                @{
+                    physicalLocation = @{
+                        artifactLocation = @{
+                            uri = [string]$filePath
+                        }
+                        region = @{
+                            startLine = 1
+                        }
+                    }
+                }
+            )
+        }
+
+    }
+
+    # --------------------------------
+    # SARIF document structure
+    # --------------------------------
+
+    $sarif = @{
+        version = "2.1.0"
+        '$schema' = "https://json.schemastore.org/sarif-2.1.0.json"
+        runs = @(
+            @{
+                tool = @{
+                    driver = @{
+                        name = "HCL AppScan"
+                        informationUri = "https://www.hcltech.com/appscan"
+                        rules = $rules.Values
+                    }
+                }
+                results = $results
+            }
+        )
+    }
+
+    # --------------------------------
+    # Write SARIF file
+    # --------------------------------
+
+    $sarif | ConvertTo-Json -Depth 20 | Out-File "appscan-results.sarif"
+
+    Write-Host "SARIF file generated successfully: appscan-results.sarif"
 }
