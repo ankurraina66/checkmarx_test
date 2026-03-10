@@ -49,21 +49,25 @@ $unsignedToken = "$headerEncoded.$payloadEncoded"
 # Sign JWT
 # -----------------------------
 
-# Normalize PEM formatting
 $privateKey = $privateKey -replace "`r",""
 $privateKey = $privateKey -replace "\\n","`n"
+
 Write-Host "Private key length:" $privateKey.Length
+
 $rsa = [System.Security.Cryptography.RSA]::Create()
 
-$reader = New-Object System.IO.StringReader($privateKey)
-$rsa.ImportFromPem($reader.ReadToEnd())
+$privateKeyBytes = [System.Text.Encoding]::UTF8.GetBytes($privateKey)
+
+$rsa.ImportRSAPrivateKey(
+    $privateKeyBytes,
+    [ref]0
+)
 
 $signatureBytes = $rsa.SignData(
     [System.Text.Encoding]::UTF8.GetBytes($unsignedToken),
     [System.Security.Cryptography.HashAlgorithmName]::SHA256,
     [System.Security.Cryptography.RSASignaturePadding]::Pkcs1
 )
-
 $signature = [Convert]::ToBase64String($signatureBytes)
 $signature = $signature.TrimEnd("=") -replace "\+", "-" -replace "/", "_"
 
