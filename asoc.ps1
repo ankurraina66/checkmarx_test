@@ -1159,8 +1159,6 @@ function Generate-SARIF($scanID) {
     # --------------------------------
     # Write SARIF file
     # --------------------------------
-
-    $sarif | ConvertTo-Json -Depth 20 | Out-File "appscan-results.sarif"
-
-    Write-Host "SARIF file generated successfully: appscan-results.sarif"
+		$sarifPath = "$env:GITHUB_WORKSPACE/appscan-results.sarif"
+		$sarif | ConvertTo-Json -Depth 20 | Out-File $sarifPath -Encoding utf8
 }
