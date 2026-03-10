@@ -1152,7 +1152,7 @@ function Generate-SARIF($scanID) {
 		        }
     }
     	automationDetails = @{
-        id = "appscan-dast-${env:GITHUB_WORKFLOW}"
+        id = "appscan-dast-$env:GITHUB_WORKFLOW"
     }
 
     	results = $results
