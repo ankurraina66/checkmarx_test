@@ -1150,11 +1150,11 @@ function Generate-SARIF($scanID) {
     }
 
     automationDetails = @{
-        id = "appscan-dast-$env:GITHUB_WORKFLOW"
+        id = "appscan-dast"
     }
 
     results = $results
-	}
+}
 
 	$sarif = @{
 	    version = "2.1.0"
