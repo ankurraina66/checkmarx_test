@@ -318,7 +318,7 @@ $iacCount = 0
 foreach ($issue in $issues) {
 	
 	if ($issue.IssueType -match "DAST") {
-        $sastCount++
+        $dastCount++
     }
 
     elseif ($issue.IssueType -match "SAST") {
@@ -452,8 +452,18 @@ if ($env:GITHUB_STEP_SUMMARY) {
   # ==========================================
 
   Generate-SARIF $scanID
+  Write-Host "Uploading SARIF to GitHub Code Scanning..."
 
-}
+  $scriptPath = Join-Path $env:GITHUB_ACTION_PATH "upload-github-code-scanning.ps1"
+
+		if (Test-Path $scriptPath) {
+			& $scriptPath
+		}
+		else {
+			Write-Warning "GitHub SARIF upload script not found"
+		}
+
+	}
 function Run-ASoC-GenerateReport ($scanID) {
 
   $params = @{
