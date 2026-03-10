@@ -2,7 +2,7 @@ param(
     [string]$SarifFile = "appscan-results.sarif"
 )
 
-Write-Host "Starting GitHub Code Scanning upload..."
+Write-Host "Starting GitHub Code Scanning upload..."F
 
 $appId = $env:GH_APP_ID
 $installationId = $env:GH_APP_INSTALLATION_ID
@@ -151,6 +151,7 @@ $body = @{
     ref = $env:GITHUB_REF
     sarif = $sarifEncoded
     tool_name = "HCL AppScan DAST"
+    run_id = $env:GITHUB_RUN_ID
 } | ConvertTo-Json -Depth 10
 
 $uploadUrl = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/code-scanning/sarifs"
