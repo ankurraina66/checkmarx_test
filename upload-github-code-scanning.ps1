@@ -6,10 +6,19 @@ Write-Host "Starting GitHub Code Scanning upload..."
 
 $appId = $env:GH_APP_ID
 $installationId = $env:GH_APP_INSTALLATION_ID
-$privateKey = $env:GH_APP_PRIVATE_KEY
+$privateKey = $env:GH_APP_PRIVATE_KEY -replace "\\n", "`n"
+$rsa.ImportFromPem($privateKey)
 
 if (!$appId -or !$installationId -or !$privateKey) {
     Write-Error "Missing GitHub App environment variables"
+    exit 1
+}
+
+Write-Host "GitHub App ID: $appId"
+Write-Host "Installation ID: $installationId"
+
+if (!$privateKey) {
+    Write-Error "Private key not loaded"
     exit 1
 }
 
