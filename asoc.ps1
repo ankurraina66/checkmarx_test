@@ -452,6 +452,7 @@ if ($env:GITHUB_STEP_SUMMARY) {
   # ==========================================
 
   Generate-SARIF $scanID
+  Create-GitHubCheckRun
 
 }
 function Run-ASoC-GenerateReport ($scanID) {
@@ -1167,4 +1168,40 @@ function Generate-SARIF($scanID) {
     # --------------------------------
 		$sarifPath = "$env:GITHUB_WORKSPACE/appscan-results.sarif"
 		$sarif | ConvertTo-Json -Depth 20 | Out-File $sarifPath -Encoding utf8
+}
+
+function Create-GitHubCheckRun {
+
+    Write-Host "Creating GitHub check run for AppScan..."
+
+    $repo = $env:GITHUB_REPOSITORY
+    $sha = $env:GITHUB_SHA
+    $token = $env:GITHUB_TOKEN
+
+    $url = "https://api.github.com/repos/$repo/check-runs"
+
+    $body = @{
+        name = "HCL AppScan DAST"
+        head_sha = $sha
+        status = "completed"
+        conclusion = "success"
+
+        output = @{
+            title = "HCL AppScan DAST Security Scan"
+            summary = "Security scan completed successfully. Results available in GitHub Code Scanning alerts."
+        }
+    } | ConvertTo-Json -Depth 10
+
+    Invoke-RestMethod `
+        -Uri $url `
+        -Method POST `
+        -Headers @{
+            Authorization = "Bearer $token"
+            Accept = "application/vnd.github+json"
+            "X-GitHub-Api-Version" = "2022-11-28"
+        } `
+        -Body $body `
+        -ContentType "application/json"
+
+    Write-Host "Check run created successfully"
 }
