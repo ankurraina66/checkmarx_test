@@ -1178,6 +1178,8 @@ function Create-GitHubCheckRun {
     $sha = $env:GITHUB_SHA
     $token = $env:GITHUB_TOKEN
 
+	Write-Host "Token length:" $token.Length
+
     $url = "https://api.github.com/repos/$repo/check-runs"
 
     $body = @{
