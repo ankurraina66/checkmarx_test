@@ -1139,25 +1139,28 @@ function Generate-SARIF($scanID) {
     # SARIF document structure
     # --------------------------------
 
-    $sarif = @{
-        version = "2.1.0"
-        '$schema' = "https://json.schemastore.org/sarif-2.1.0.json"
-        $runs = @{
-    		tool = @{
-		        driver = @{
-		            name = "HCL AppScan DAST"
-		            version = "1.0"
-		            informationUri = "https://www.hcltech.com/appscan"
-		            rules = $rules.Values
-		        }
+    $runs = @{
+    tool = @{
+        driver = @{
+            name = "HCL AppScan DAST"
+            version = "1.0"
+            informationUri = "https://www.hcltech.com/appscan"
+            rules = $rules.Values
+        }
     }
-    	automationDetails = @{
+
+    automationDetails = @{
         id = "appscan-dast-$env:GITHUB_WORKFLOW"
     }
 
-    	results = $results
-		}
-    }
+    results = $results
+	}
+
+	$sarif = @{
+	    version = "2.1.0"
+	    "`$schema" = "https://json.schemastore.org/sarif-2.1.0.json"
+	    runs = @($runs)
+	}
 
     # --------------------------------
     # Write SARIF file
