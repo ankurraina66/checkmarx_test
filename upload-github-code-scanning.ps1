@@ -64,7 +64,7 @@ Write-Host "JWT generated"
 # -----------------------------
 
 $tokenResponse = Invoke-RestMethod `
-    -Uri "$env:GITHUB_API_URL/app/installations/$installationId/access_tokens" `
+    -Uri "https://api.github.com/app/installations/$installationId/access_tokens" `
     -Method POST `
     -Headers @{
         Authorization = "Bearer $jwt"
@@ -112,7 +112,7 @@ $body = @{
     tool_name = "HCL AppScan DAST"
 } | ConvertTo-Json -Depth 10
 
-$uploadUrl = "$env:GITHUB_API_URL/repos/$env:GITHUB_REPOSITORY/code-scanning/sarifs"
+$uploadUrl = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/code-scanning/sarifs"
 
 $response = Invoke-RestMethod `
     -Uri $uploadUrl `
