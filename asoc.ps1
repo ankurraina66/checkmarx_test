@@ -452,7 +452,8 @@ if ($env:GITHUB_STEP_SUMMARY) {
   # ==========================================
 
   Generate-SARIF $scanID
-  Create-GitHubCheckRun $summary
+  $prMarkdown = Build-PRDecorationTable $scanID
+  Create-GitHubCheckRun $prMarkdown
 }
 function Run-ASoC-GenerateReport ($scanID) {
 
@@ -1169,16 +1170,117 @@ function Generate-SARIF($scanID) {
 		$sarif | ConvertTo-Json -Depth 20 | Out-File $sarifPath -Encoding utf8
 }
 
-function Create-GitHubCheckRun($summaryHtml) {
+function Get-IssueDiff($scanID) {
+
+    Write-Host "Calculating New vs Fixed vulnerabilities..."
+
+    $currentIssues = Run-ASoC-GetAllIssuesFromScan $scanID
+
+    $previousScan = Run-ASoC-GetScanDetails $scanID
+
+    if (-not $previousScan.LatestExecution.PreviousExecution) {
+        Write-Host "No previous scan found."
+        return @{
+            New = $currentIssues.Items
+            Fixed = @()
+        }
+    }
+
+    $previousScanId = $previousScan.LatestExecution.PreviousExecution.ScanId
+
+    $previousIssues = Run-ASoC-GetAllIssuesFromScan $previousScanId
+
+    $newIssues = @()
+    $fixedIssues = @()
+
+    foreach ($issue in $currentIssues.Items) {
+
+        $match = $previousIssues.Items | Where-Object {
+            $_.IssueType -eq $issue.IssueType -and $_.Url -eq $issue.Url
+        }
+
+        if (-not $match) {
+            $newIssues += $issue
+        }
+    }
+
+    foreach ($issue in $previousIssues.Items) {
+
+        $match = $currentIssues.Items | Where-Object {
+            $_.IssueType -eq $issue.IssueType -and $_.Url -eq $issue.Url
+        }
+
+        if (-not $match) {
+            $fixedIssues += $issue
+        }
+    }
+
+    return @{
+        New = $newIssues
+        Fixed = $fixedIssues
+    }
+}
+
+function Build-PRDecorationTable($scanID) {
+
+    $diff = Get-IssueDiff $scanID
+
+    $newIssues = $diff.New
+    $fixedIssues = $diff.Fixed
+
+    $newTable = ""
+    $fixedTable = ""
+
+    foreach ($issue in $newIssues | Select-Object -First 10) {
+
+        $url = $issue.Url
+        if (-not $url) { $url = $issue.VulnerableUrl }
+
+        $newTable += "| $($issue.Severity) | $($issue.IssueType) | $url | AppScan DAST |`n"
+    }
+
+    foreach ($issue in $fixedIssues | Select-Object -First 10) {
+
+        $url = $issue.Url
+        if (-not $url) { $url = $issue.VulnerableUrl }
+
+        $fixedTable += "| $($issue.Severity) | $($issue.IssueType) | $url |`n"
+    }
+
+    $markdown = @"
+## HCL AppScan DAST – Scan Summary
+
+### New Issues
+
+| Severity | Issue | Endpoint | Scan Engine |
+|---------|------|---------|-------------|
+$newTable
+
+---
+
+### Fixed Issues
+
+| Severity | Issue | Endpoint |
+|---------|------|---------|
+$fixedTable
+
+---
+Scan executed by **HCL AppScan DAST**
+"@
+
+    return $markdown
+}
+
+function Create-GitHubCheckRun($markdown) {
 
     Write-Host "Creating GitHub PR Check Run..."
 
-    $token = $env:GITHUB_TOKEN
     $repo = $env:GITHUB_REPOSITORY
     $sha = $env:GITHUB_SHA
+    $token = $env:GITHUB_TOKEN
 
     if (-not $token) {
-        Write-Host "No GitHub token available. Skipping PR decoration."
+        Write-Host "GITHUB_TOKEN missing"
         return
     }
 
@@ -1191,9 +1293,9 @@ function Create-GitHubCheckRun($summaryHtml) {
         conclusion = "success"
 
         output = @{
-            title = "HCL AppScan DAST Security Scan"
-            summary = "Security scan completed."
-            text = $summaryHtml
+            title = "AppScan Security Scan"
+            summary = "DAST scan completed"
+            text = $markdown
         }
 
     } | ConvertTo-Json -Depth 10
@@ -1208,5 +1310,5 @@ function Create-GitHubCheckRun($summaryHtml) {
         -Body $body `
         -ContentType "application/json"
 
-    Write-Host "GitHub PR check created successfully"
+    Write-Host "PR decoration created"
 }
