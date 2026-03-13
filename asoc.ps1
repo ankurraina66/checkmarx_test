@@ -451,10 +451,7 @@ if ($env:GITHUB_STEP_SUMMARY) {
   # Generate SARIF for GitHub Code Scanning
   # ==========================================
 
-  Generate-SARIF $scanID
-  $prMarkdown = Build-PRDecorationTable $scanID
-  $prMarkdown | Out-File "$env:GITHUB_WORKSPACE/appscan_pr_report.md"
-  
+  Generate-SARIF $scanID 
 }
 function Run-ASoC-GenerateReport ($scanID) {
 
@@ -1169,118 +1166,5 @@ function Generate-SARIF($scanID) {
     # --------------------------------
 		$sarifPath = "$env:GITHUB_WORKSPACE/appscan-results.sarif"
 		$sarif | ConvertTo-Json -Depth 20 | Out-File $sarifPath -Encoding utf8
-}
-
-function Get-IssueDiff($scanID) {
-
-    Write-Host "Calculating New vs Fixed vulnerabilities..."
-
-    $currentIssues = Run-ASoC-GetAllIssuesFromScan $scanID
-
-    $previousScan = Run-ASoC-GetScanDetails $scanID
-
-    if (-not $previousScan.LatestExecution.PreviousExecution) {
-        Write-Host "No previous scan found."
-        return @{
-            New = $currentIssues.Items
-            Fixed = @()
-        }
-    }
-
-    $previousScanId = $previousScan.LatestExecution.PreviousExecution.ScanId
-
-    $previousIssues = Run-ASoC-GetAllIssuesFromScan $previousScanId
-
-    $newIssues = @()
-    $fixedIssues = @()
-
-    foreach ($issue in $currentIssues.Items) {
-
-        $match = $previousIssues.Items | Where-Object {
-            $_.IssueType -eq $issue.IssueType -and $_.Url -eq $issue.Url
-        }
-
-        if (-not $match) {
-            $newIssues += $issue
-        }
-    }
-
-    foreach ($issue in $previousIssues.Items) {
-
-        $match = $currentIssues.Items | Where-Object {
-            $_.IssueType -eq $issue.IssueType -and $_.Url -eq $issue.Url
-        }
-
-        if (-not $match) {
-            $fixedIssues += $issue
-        }
-    }
-
-    return @{
-        New = $newIssues
-        Fixed = $fixedIssues
-    }
-}
-
-function Build-PRDecorationTable($scanID) {
-
-    $diff = Get-IssueDiff $scanID
-
-    $newIssues = $diff.New
-    $fixedIssues = $diff.Fixed
-
-    $newTable = ""
-    $fixedTable = ""
-
-    foreach ($issue in $newIssues | Select-Object -First 10) {
-
-        $url = $issue.Url
-        if (-not $url) { $url = $issue.VulnerableUrl }
-
-        $newTable += "| $($issue.Severity) | $($issue.IssueType) | $url | AppScan DAST |`n"
-    }
-
-    foreach ($issue in $fixedIssues | Select-Object -First 10) {
-
-        $url = $issue.Url
-        if (-not $url) { $url = $issue.VulnerableUrl }
-
-        $fixedTable += "| $($issue.Severity) | $($issue.IssueType) | $url |`n"
-    }
-
-    $markdown = @"
-$markdown = @"
-# 🔎 HCL AppScan DAST Security Report
-
-## Risk Level
-$riskIcon **$riskLevel**
-
----
-
-## New Issues
-
-| Severity | Issue | Endpoint | Engine |
-|---|---|---|---|
-$newTable
-
----
-
-## Fixed Issues
-
-| Severity | Issue | Endpoint |
-|---|---|---|
-$fixedTable
-
----
-
-**Scanner:** HCL AppScan DAST  
-**Scan ID:** $scanID  
-**Repository:** $env:GITHUB_REPOSITORY  
-**Commit:** $env:GITHUB_SHA  
-
-[View Full Scan in AppScan]($scanLink)
-"@
-
-    return $markdown
 }
 
