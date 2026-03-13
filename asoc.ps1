@@ -453,7 +453,8 @@ if ($env:GITHUB_STEP_SUMMARY) {
 
   Generate-SARIF $scanID
   $prMarkdown = Build-PRDecorationTable $scanID
-  Publish-PRComment $prMarkdown
+  $prMarkdown | Out-File "$env:GITHUB_WORKSPACE/appscan_pr_report.md"
+  
 }
 function Run-ASoC-GenerateReport ($scanID) {
 
@@ -1283,46 +1284,3 @@ $fixedTable
     return $markdown
 }
 
-function Publish-PRComment($markdown) {
-
-    Write-Host "Publishing AppScan PR comment..."
-
-    if (-not $env:GITHUB_TOKEN) {
-        Write-Host "GITHUB_TOKEN missing"
-        return
-    }
-
-    if (-not $env:GITHUB_EVENT_PATH) {
-        Write-Host "No GitHub event context"
-        return
-    }
-
-    $event = Get-Content $env:GITHUB_EVENT_PATH | ConvertFrom-Json
-    $prNumber = $event.pull_request.number
-
-    if (-not $prNumber) {
-        Write-Host "Not running in a pull request"
-        return
-    }
-
-    $repo = $env:GITHUB_REPOSITORY
-    $token = $env:GITHUB_TOKEN
-
-    $uri = "https://api.github.com/repos/$repo/issues/$prNumber/comments"
-
-    $body = @{
-        body = $markdown
-    } | ConvertTo-Json -Depth 5
-
-    Invoke-RestMethod `
-        -Uri $uri `
-        -Method POST `
-        -Headers @{
-            Authorization = "Bearer $token"
-            Accept = "application/vnd.github+json"
-        } `
-        -Body $body `
-        -ContentType "application/json"
-
-    Write-Host "PR security report posted"
-}
