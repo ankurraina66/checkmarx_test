@@ -1299,14 +1299,15 @@ function Create-GitHubCheckRun($markdown) {
         }
 
     } | ConvertTo-Json -Depth 10
-
-    Invoke-RestMethod `
-        -Uri $uri `
-        -Method POST `
-        -Headers @{
-            Authorization = "Bearer $token"
-            Accept = "application/vnd.github+json"
-        } `
+Write-Host "Creating check run for repo: $repo commit: $sha"
+   Invoke-RestMethod `
+    -Uri $uri `
+    -Method POST `
+    -Headers @{
+        Authorization = "Bearer $token"
+        Accept = "application/vnd.github+json"
+        "X-GitHub-Api-Version" = "2022-11-28"
+    } `
         -Body $body `
         -ContentType "application/json"
 
