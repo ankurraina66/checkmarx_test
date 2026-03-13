@@ -453,7 +453,7 @@ if ($env:GITHUB_STEP_SUMMARY) {
 
   Generate-SARIF $scanID
   $prMarkdown = Build-PRDecorationTable $scanID
-  Create-GitHubCheckRun $prMarkdown
+  Publish-PRComment $prMarkdown
 }
 function Run-ASoC-GenerateReport ($scanID) {
 
@@ -1248,68 +1248,81 @@ function Build-PRDecorationTable($scanID) {
     }
 
     $markdown = @"
-## HCL AppScan DAST – Scan Summary
+$markdown = @"
+# 🔎 HCL AppScan DAST Security Report
 
-### New Issues
+## Risk Level
+$riskIcon **$riskLevel**
 
-| Severity | Issue | Endpoint | Scan Engine |
-|---------|------|---------|-------------|
+---
+
+## New Issues
+
+| Severity | Issue | Endpoint | Engine |
+|---|---|---|---|
 $newTable
 
 ---
 
-### Fixed Issues
+## Fixed Issues
 
 | Severity | Issue | Endpoint |
-|---------|------|---------|
+|---|---|---|
 $fixedTable
 
 ---
-Scan executed by **HCL AppScan DAST**
+
+**Scanner:** HCL AppScan DAST  
+**Scan ID:** $scanID  
+**Repository:** $env:GITHUB_REPOSITORY  
+**Commit:** $env:GITHUB_SHA  
+
+[View Full Scan in AppScan]($scanLink)
 "@
 
     return $markdown
 }
 
-function Create-GitHubCheckRun($markdown) {
+function Publish-PRComment($markdown) {
 
-    Write-Host "Creating GitHub PR Check Run..."
+    Write-Host "Publishing AppScan PR comment..."
 
-    $repo = $env:GITHUB_REPOSITORY
-    $sha = $env:GITHUB_SHA
-    $token = $env:GITHUB_TOKEN
-
-    if (-not $token) {
+    if (-not $env:GITHUB_TOKEN) {
         Write-Host "GITHUB_TOKEN missing"
         return
     }
 
-    $uri = "https://api.github.com/repos/$repo/check-runs"
+    if (-not $env:GITHUB_EVENT_PATH) {
+        Write-Host "No GitHub event context"
+        return
+    }
+
+    $event = Get-Content $env:GITHUB_EVENT_PATH | ConvertFrom-Json
+    $prNumber = $event.pull_request.number
+
+    if (-not $prNumber) {
+        Write-Host "Not running in a pull request"
+        return
+    }
+
+    $repo = $env:GITHUB_REPOSITORY
+    $token = $env:GITHUB_TOKEN
+
+    $uri = "https://api.github.com/repos/$repo/issues/$prNumber/comments"
 
     $body = @{
-        name = "HCL AppScan DAST"
-        head_sha = $sha
-        status = "completed"
-        conclusion = "success"
+        body = $markdown
+    } | ConvertTo-Json -Depth 5
 
-        output = @{
-            title = "AppScan Security Scan"
-            summary = "DAST scan completed"
-            text = $markdown
-        }
-
-    } | ConvertTo-Json -Depth 10
-Write-Host "Creating check run for repo: $repo commit: $sha"
-   Invoke-RestMethod `
-    -Uri $uri `
-    -Method POST `
-    -Headers @{
-        Authorization = "Bearer $token"
-        Accept = "application/vnd.github+json"
-        "X-GitHub-Api-Version" = "2022-11-28"
-    } `
+    Invoke-RestMethod `
+        -Uri $uri `
+        -Method POST `
+        -Headers @{
+            Authorization = "Bearer $token"
+            Accept = "application/vnd.github+json"
+        } `
         -Body $body `
         -ContentType "application/json"
 
-    Write-Host "PR decoration created"
+    Write-Host "PR security report posted"
 }
