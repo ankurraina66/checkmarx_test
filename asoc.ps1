@@ -303,7 +303,7 @@ $summary = @"
 <table>
 <tr>
 <th>Critical</th>
-<th>highIcon High</th>
+<th>$highIcon High</th>
 <th>Medium</th>
 <th>Low</th>
 <th>Info</th>
