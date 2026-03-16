@@ -359,9 +359,7 @@ if ($env:GITHUB_STEP_SUMMARY) {
   # ==========================================
 
   Generate-SARIF $scanID
-  $prMarkdown = Build-PRDecorationTable $scanID
-  $prMarkdown | Out-File appscan_pr_report.md
-  
+   
 }
 function Run-ASoC-GenerateReport ($scanID) {
 
