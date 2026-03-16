@@ -451,7 +451,10 @@ if ($env:GITHUB_STEP_SUMMARY) {
   # Generate SARIF for GitHub Code Scanning
   # ==========================================
 
-  Generate-SARIF $scanID 
+  Generate-SARIF $scanID
+  $prMarkdown = Build-PRDecorationTable $scanID
+  $prMarkdown | Out-File appscan_pr_report.md
+  
 }
 function Run-ASoC-GenerateReport ($scanID) {
 
@@ -1166,5 +1169,78 @@ function Generate-SARIF($scanID) {
     # --------------------------------
 		$sarifPath = "$env:GITHUB_WORKSPACE/appscan-results.sarif"
 		$sarif | ConvertTo-Json -Depth 20 | Out-File $sarifPath -Encoding utf8
+}
+
+function Build-PRDecorationTable($scanID) {
+
+    $diff = Get-IssueDiff $scanID
+
+    $newIssues = $diff.New
+    $fixedIssues = $diff.Fixed
+
+    $newTable = ""
+    $fixedTable = ""
+
+    foreach ($issue in $newIssues | Select-Object -First 10) {
+
+        $url = $issue.Url
+        if (-not $url) { $url = $issue.VulnerableUrl }
+
+        $newTable += "| $($issue.Severity) | $($issue.IssueType) | $url | AppScan DAST |`n"
+    }
+
+    foreach ($issue in $fixedIssues | Select-Object -First 10) {
+
+        $url = $issue.Url
+        if (-not $url) { $url = $issue.VulnerableUrl }
+
+        $fixedTable += "| $($issue.Severity) | $($issue.IssueType) | $url |`n"
+    }
+
+ $markdown = @"
+# 🔎 HCL AppScan DAST Security Report
+
+## Risk Level
+$riskIcon **$riskLevel**
+
+---
+
+## New Issues
+
+| Severity | Issue | Endpoint | Engine |
+|---|---|---|---|
+$newTable
+
+---
+
+## Fixed Issues
+
+| Severity | Issue | Endpoint |
+|---|---|---|
+$fixedTable
+
+---
+
+**Scanner:** HCL AppScan DAST  
+**Scan ID:** $scanID  
+**Repository:** $env:GITHUB_REPOSITORY  
+**Commit:** $env:GITHUB_SHA  
+
+[View Full Scan in AppScan]($scanLink)
+"@
+
+    return $markdown
+}
+
+function Get-IssueDiff($scanID) {
+
+    $currentIssues = Run-ASoC-GetAllIssuesFromScan $scanID
+    $newIssues = $currentIssues.Items
+    $fixedIssues = @()
+
+    return @{
+        New = $newIssues
+        Fixed = $fixedIssues
+    }
 }
 
