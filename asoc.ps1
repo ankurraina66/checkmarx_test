@@ -280,30 +280,6 @@ $info     = ($issues | Where-Object {$_.Severity -eq "Informational"} | Measure-
 $total = $critical + $high + $medium + $low + $info
 $scanTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
-# ==========================================
-# Determine highest severity risk level
-# ==========================================
-
-$riskLevel = "Informational"
-$riskIcon = "⚪"
-
-if ($critical -gt 0) {
-    $riskLevel = "Critical Risk"
-    $riskIcon = "🔴"
-}
-elseif ($high -gt 0) {
-    $riskLevel = "High Risk"
-    $riskIcon = "🟠"
-}
-elseif ($medium -gt 0) {
-    $riskLevel = "Medium Risk"
-    $riskIcon = "🟡"
-}
-elseif ($low -gt 0) {
-    $riskLevel = "Low Risk"
-    $riskIcon = "🟢"
-}
-
 $scanLink = "$env:INPUT_BASEURL/main/myapps/$env:INPUT_APPLICATION_ID/scans/$scanID"
 
 # ==========================================
@@ -311,76 +287,28 @@ $scanLink = "$env:INPUT_BASEURL/main/myapps/$env:INPUT_APPLICATION_ID/scans/$sca
 # ==========================================
 
 $dastCount = $total
-$sastCount = 0
-$scaCount = 0
-$iacCount = 0
 
 foreach ($issue in $issues) {
 	
 	if ($issue.IssueType -match "DAST") {
-        $sastCount++
-    }
-
-    elseif ($issue.IssueType -match "SAST") {
-        $sastCount++
-    }
-
-    elseif ($issue.IssueType -match "Dependency" -or $issue.IssueType -match "SCA") {
-        $scaCount++
-    }
-
-    elseif ($issue.IssueType -match "IaC") {
-        $iacCount++
+        $dastCount++
     }
 }
-
-# ==========================================
-# API Security Metrics
-# ==========================================
-
-$detectedApis = 0
-$apisWithRisk = 0
-
-$allIssues = Run-ASoC-GetAllIssuesFromScan $scanID
-
-foreach ($issue in $allIssues.Items) {
-
-    $url = $issue.Url
-
-    if (!$url) {
-        $url = $issue.VulnerableUrl
-    }
-
-    if (!$url) {
-        continue
-    }
-
-    if ($url -match "/api/" -or $url -match "/rest/" -or $url -match "/v1/" -or $url -match "/v2/") {
-
-        $detectedApis++
-
-        if ($issue.Severity -eq "High" -or $issue.Severity -eq "Critical") {
-            $apisWithRisk++
-        }
-    }
-}
+$appLink = "$env:INPUT_BASEURL/main/myapps/$env:INPUT_APPLICATION_ID/dashboard"
+$criticalIcon = '<svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="#C10C0D"/></svg>'
 
 $summary = @"
 <h1>HCL AppScan Scan Summary</h1>
-
-<h2>$riskIcon $riskLevel</h2>
 
 <b>Scan ID:</b> <a href="$scanLink">$scanID</a>  
 <b>Scan Time:</b> $scanTime  
 <b>Repository:</b> $env:GITHUB_REPOSITORY  
 
----
-
 <h2>Total Vulnerabilities: $total</h2>
 
 <table>
 <tr>
-<th>🔴 Critical</th>
+<th>$criticalIcon Critical</th>
 <th>🔴 High</th>
 <th>🟡 Medium</th>
 <th>⚪ Low</th>
@@ -395,48 +323,27 @@ $summary = @"
 </tr>
 </table>
 
----
 
-<h3>Vulnerabilities per Scan Type</h3>
+<h3>Vulnerabilities</h3>
 
 <table>
 <tr>
 <th>DAST</th>
-<th>SAST</th>
-<th>IaC Security</th>
-<th>SCA</th>
 </tr>
 <tr>
 <td align="center">$dastCount</td>
-<td align="center">$sastCount</td>
-<td align="center">$iacCount</td>
-<td align="center">$scaCount</td>
 </tr>
 </table>
-
----
-
-<h3>API Security</h3>
-
-<table>
-<tr>
-<th>Detected APIs</th>
-<th>APIs with risk</th>
-</tr>
-<tr>
-<td align="center">$detectedApis</td>
-<td align="center">$apisWithRisk</td>
-</tr>
-</table>
-
----
 
 <h3>Scan Information</h3>
 
 <table>
 <tr><td><b>Scanner</b></td><td>HCL AppScan</td></tr>
 <tr><td><b>Scan Type</b></td><td>DAST</td></tr>
-<tr><td><b>Application ID</b></td><td>$env:INPUT_APPLICATION_ID</td></tr>
+<tr>
+<td><b>Application</b></td>
+<td><a href="$appLink">$env:INPUT_APPLICATION_ID</a></td>
+</tr>
 <tr><td><b>Commit</b></td><td>$env:GITHUB_SHA</td></tr>
 </table>
 
@@ -1169,101 +1076,4 @@ function Generate-SARIF($scanID) {
     # --------------------------------
 		$sarifPath = "$env:GITHUB_WORKSPACE/appscan-results.sarif"
 		$sarif | ConvertTo-Json -Depth 20 | Out-File $sarifPath -Encoding utf8
-}
-
-function Build-PRDecorationTable($scanID) {
-
-    $diff = Get-IssueDiff $scanID
-
-    $newIssues = $diff.New
-    $fixedIssues = $diff.Fixed
-
-    $newTable = ""
-    $fixedTable = ""
-
-    foreach ($issue in $newIssues | Select-Object -First 10) {
-
-        $url = $issue.Url
-        if (-not $url) { $url = $issue.VulnerableUrl }
-
-        $newTable += "| $($issue.Severity) | $($issue.IssueType) | $url | AppScan DAST |`n"
-    }
-
-    foreach ($issue in $fixedIssues | Select-Object -First 10) {
-
-        $url = $issue.Url
-        if (-not $url) { $url = $issue.VulnerableUrl }
-
-        $fixedTable += "| $($issue.Severity) | $($issue.IssueType) | $url |`n"
-    }
-
-$markdown = @"
-<!-- appscan-dast-report -->
-
-# 🔎 HCL AppScan DAST Security Report
-
-## 🚨 Risk Level
-### $riskIcon **$riskLevel**
-
----
-
-## 📊 Vulnerability Summary
-
-| Critical | High | Medium | Low | Info |
-|---|---|---|---|---|
-| $critical | $high | $medium | $low | $info |
-
----
-
-## 🆕 New Issues
-
-| Severity | Issue | Endpoint | Engine |
-|---|---|---|---|
-$newTable
-
----
-
-<details>
-<summary>🛠 Fixed Issues</summary>
-
-| Severity | Issue | Endpoint |
-|---|---|---|
-$fixedTable
-
-</details>
-
----
-
-## 🔧 Scan Information
-
-| Field | Value |
-|---|---|
-| Scanner | **HCL AppScan DAST** |
-| Scan ID | $scanID |
-| Repository | $env:GITHUB_REPOSITORY |
-| Commit | $env:GITHUB_SHA |
-| Scan Time | $scanTime |
-
----
-
-🔗 **View full scan results:**  
-$scanLink
-
----
-_This report was generated automatically by AppScan DAST._
-"@
-
-    return $markdown
-}
-
-function Get-IssueDiff($scanID) {
-
-    $currentIssues = Run-ASoC-GetAllIssuesFromScan $scanID
-    $newIssues = $currentIssues.Items
-    $fixedIssues = @()
-
-    return @{
-        New = $newIssues
-        Fixed = $fixedIssues
-    }
 }
