@@ -288,14 +288,7 @@ $scanLink = "$env:INPUT_BASEURL/main/myapps/$env:INPUT_APPLICATION_ID/scans/$sca
 
 $dastCount = $total
 
-foreach ($issue in $issues) {
-	
-	if ($issue.IssueType -match "DAST") {
-        $dastCount++
-    }
-}
 $appLink = "$env:INPUT_BASEURL/main/myapps/$env:INPUT_APPLICATION_ID"
-$criticalIcon = '<span style="background:#C10C0D;width:10px;height:10px;display:inline-block;border-radius:50%;margin-right:4px;"></span>'
 
 $summary = @"
 <h1>HCL AppScan Scan Summary</h1>
@@ -308,7 +301,7 @@ $summary = @"
 
 <table>
 <tr>
-<th>$criticalIcon Critical</th>
+<th><span style="color:#C10C0D;">●</span> Critical</th>
 <th>🔴 High</th>
 <th>🟡 Medium</th>
 <th>⚪ Low</th>
