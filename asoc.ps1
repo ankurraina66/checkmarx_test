@@ -289,7 +289,7 @@ $scanLink = "$env:INPUT_BASEURL/main/myapps/$env:INPUT_APPLICATION_ID/scans/$sca
 $dastCount = $total
 
 $appLink = "$env:INPUT_BASEURL/main/myapps/$env:INPUT_APPLICATION_ID"
-$criticalIcon = 'https://raw.githubusercontent.com/ankurraina66/checkmarx_test/main/img/critical.png'
+$criticalLabel = '<span style="color:#C10C0D;font-weight:bold;">Critical</span>'
 
 $summary = @"
 <h1>HCL AppScan Scan Summary</h1>
@@ -302,7 +302,7 @@ $summary = @"
 
 <table>
 <tr>
-<th>$criticalIcon Critical</th>
+<th>$criticalLabel</th>
 <th>High</th>
 <th>Medium</th>
 <th>Low</th>
