@@ -1197,15 +1197,25 @@ function Build-PRDecorationTable($scanID) {
         $fixedTable += "| $($issue.Severity) | $($issue.IssueType) | $url |`n"
     }
 
- $markdown = @"
+$markdown = @"
+<!-- appscan-dast-report -->
+
 # 🔎 HCL AppScan DAST Security Report
 
-## Risk Level
-$riskIcon **$riskLevel**
+## 🚨 Risk Level
+### $riskIcon **$riskLevel**
 
 ---
 
-## New Issues
+## 📊 Vulnerability Summary
+
+| Critical | High | Medium | Low | Info |
+|---|---|---|---|---|
+| $critical | $high | $medium | $low | $info |
+
+---
+
+## 🆕 New Issues
 
 | Severity | Issue | Endpoint | Engine |
 |---|---|---|---|
@@ -1213,20 +1223,34 @@ $newTable
 
 ---
 
-## Fixed Issues
+<details>
+<summary>🛠 Fixed Issues</summary>
 
 | Severity | Issue | Endpoint |
 |---|---|---|
 $fixedTable
 
+</details>
+
 ---
 
-**Scanner:** HCL AppScan DAST  
-**Scan ID:** $scanID  
-**Repository:** $env:GITHUB_REPOSITORY  
-**Commit:** $env:GITHUB_SHA  
+## 🔧 Scan Information
 
-[View Full Scan in AppScan]($scanLink)
+| Field | Value |
+|---|---|
+| Scanner | **HCL AppScan DAST** |
+| Scan ID | $scanID |
+| Repository | $env:GITHUB_REPOSITORY |
+| Commit | $env:GITHUB_SHA |
+| Scan Time | $scanTime |
+
+---
+
+🔗 **View full scan results:**  
+$scanLink
+
+---
+_This report was generated automatically by AppScan DAST._
 "@
 
     return $markdown
@@ -1243,4 +1267,3 @@ function Get-IssueDiff($scanID) {
         Fixed = $fixedIssues
     }
 }
-
