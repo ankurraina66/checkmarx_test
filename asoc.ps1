@@ -294,8 +294,8 @@ foreach ($issue in $issues) {
         $dastCount++
     }
 }
-$appLink = "$env:INPUT_BASEURL/main/myapps/$env:INPUT_APPLICATION_ID/dashboard"
-$criticalIcon = '<svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="#C10C0D"/></svg>'
+$appLink = "$env:INPUT_BASEURL/main/myapps/$env:INPUT_APPLICATION_ID"
+$criticalIcon = '<span style="color:#C10C0D;">●</span>'
 
 $summary = @"
 <h1>HCL AppScan Scan Summary</h1>
