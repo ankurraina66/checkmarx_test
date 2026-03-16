@@ -295,7 +295,7 @@ foreach ($issue in $issues) {
     }
 }
 $appLink = "$env:INPUT_BASEURL/main/myapps/$env:INPUT_APPLICATION_ID"
-$criticalIcon = '<span style="background:#C10C0D;width:10px;height:10px;display:inline-block;border-radius:50%;margin-right:4px;"></span>
+$criticalIcon = '<span style="background:#C10C0D;width:10px;height:10px;display:inline-block;border-radius:50%;margin-right:4px;"></span>'
 
 $summary = @"
 <h1>HCL AppScan Scan Summary</h1>
