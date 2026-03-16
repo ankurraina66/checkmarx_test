@@ -289,6 +289,7 @@ $scanLink = "$env:INPUT_BASEURL/main/myapps/$env:INPUT_APPLICATION_ID/scans/$sca
 $dastCount = $total
 
 $appLink = "$env:INPUT_BASEURL/main/myapps/$env:INPUT_APPLICATION_ID"
+$highIcon = '<img src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB3aWR0aD0iMTZweCIgaGVpZ2h0PSIxNnB4IiB2aWV3Qm94PSIwIDAgMTYgMTYiIHZlcnNpb249IjEuMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayI+CiAgICA8IS0tIEdlbmVyYXRvcjogU2tldGNoIDU4ICg4NDY2MykgLSBodHRwczovL3NrZXRjaC5jb20gLS0+CiAgICA8dGl0bGU+c2V2ZXJpdHlfaGlnaDwvdGl0bGU+CiAgICA8ZGVzYz5DcmVhdGVkIHdpdGggU2tldGNoLjwvZGVzYz4KICAgIDxnIGlkPSJzZXZlcml0eV9oaWdoIiBzdHJva2U9Im5vbmUiIHN0cm9rZS13aWR0aD0iMSIgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj4KICAgICAgICA8ZyBpZD0iYXRvbXMvaW5kaWNhdG9ycy9zdGF0dXMvZG90L2F0dGVudGlvbjA0IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyLjAwMDAwMCwgMi4wMDAwMDApIiBmaWxsPSIjRTAxODJEIj4KICAgICAgICAgICAgPGNpcmNsZSBpZD0iT3ZhbC0yIiBjeD0iNiIgY3k9IjYiIHI9IjQiPjwvY2lyY2xlPgogICAgICAgIDwvZz4KICAgIDwvZz4KPC9zdmc+" width="10">'
 
 $summary = @"
 <h1>HCL AppScan Scan Summary</h1>
@@ -301,11 +302,11 @@ $summary = @"
 
 <table>
 <tr>
-<th><span style="color:#C10C0D;">●</span> Critical</th>
-<th>🔴 High</th>
-<th>🟡 Medium</th>
-<th>⚪ Low</th>
-<th>ℹ️ Info</th>
+<th>Critical</th>
+<th>highIcon High</th>
+<th>Medium</th>
+<th>Low</th>
+<th>Info</th>
 </tr>
 <tr>
 <td align="center"><b>$critical</b></td>
