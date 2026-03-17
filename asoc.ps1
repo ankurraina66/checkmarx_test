@@ -289,7 +289,6 @@ $scanLink = "$env:INPUT_BASEURL/main/myapps/$env:INPUT_APPLICATION_ID/scans/$sca
 $dastCount = $total
 
 $appLink = "$env:INPUT_BASEURL/main/myapps/$env:INPUT_APPLICATION_ID"
-$criticalLabel = '<span style="color:#C10C0D;font-weight:bold;">Critical</span>'
 
 $summary = @"
 <h1>HCL AppScan Scan Summary</h1>
@@ -302,7 +301,7 @@ $summary = @"
 
 <table>
 <tr>
-<th>$criticalLabel</th>
+<th>Critical</th>
 <th>High</th>
 <th>Medium</th>
 <th>Low</th>
@@ -353,7 +352,9 @@ if ($env:GITHUB_STEP_SUMMARY) {
   # ==========================================
 
   Generate-SARIF $scanID
-   
+  $prMarkdown = Build-PRDecorationTable $scanID
+  $prMarkdown | Out-File appscan_pr_report.md
+  
 }
 function Run-ASoC-GenerateReport ($scanID) {
 
@@ -1068,4 +1069,101 @@ function Generate-SARIF($scanID) {
     # --------------------------------
 		$sarifPath = "$env:GITHUB_WORKSPACE/appscan-results.sarif"
 		$sarif | ConvertTo-Json -Depth 20 | Out-File $sarifPath -Encoding utf8
+}
+
+function Build-PRDecorationTable($scanID) {
+
+    $diff = Get-IssueDiff $scanID
+
+    $newIssues = $diff.New
+    $fixedIssues = $diff.Fixed
+
+    $newTable = ""
+    $fixedTable = ""
+
+    foreach ($issue in $newIssues | Select-Object -First 10) {
+
+        $url = $issue.Url
+        if (-not $url) { $url = $issue.VulnerableUrl }
+
+        $newTable += "| $($issue.Severity) | $($issue.IssueType) | $url | AppScan DAST |`n"
+    }
+
+    foreach ($issue in $fixedIssues | Select-Object -First 10) {
+
+        $url = $issue.Url
+        if (-not $url) { $url = $issue.VulnerableUrl }
+
+        $fixedTable += "| $($issue.Severity) | $($issue.IssueType) | $url |`n"
+    }
+
+$markdown = @"
+<!-- appscan-dast-report -->
+
+# 🔎 HCL AppScan DAST Security Report
+
+## 🚨 Risk Level
+### $riskIcon **$riskLevel**
+
+---
+
+## 📊 Vulnerability Summary
+
+| Critical | High | Medium | Low | Info |
+|---|---|---|---|---|
+| $critical | $high | $medium | $low | $info |
+
+---
+
+## 🆕 New Issues
+
+| Severity | Issue | Endpoint | Engine |
+|---|---|---|---|
+$newTable
+
+---
+
+<details>
+<summary>🛠 Fixed Issues</summary>
+
+| Severity | Issue | Endpoint |
+|---|---|---|
+$fixedTable
+
+</details>
+
+---
+
+## 🔧 Scan Information
+
+| Field | Value |
+|---|---|
+| Scanner | **HCL AppScan DAST** |
+| Scan ID | $scanID |
+| Repository | $env:GITHUB_REPOSITORY |
+| Commit | $env:GITHUB_SHA |
+| Scan Time | $scanTime |
+
+---
+
+🔗 **View full scan results:**  
+$scanLink
+
+---
+_This report was generated automatically by AppScan DAST._
+"@
+
+    return $markdown
+}
+
+function Get-IssueDiff($scanID) {
+
+    $currentIssues = Run-ASoC-GetAllIssuesFromScan $scanID
+    $newIssues = $currentIssues.Items
+    $fixedIssues = @()
+
+    return @{
+        New = $newIssues
+        Fixed = $fixedIssues
+    }
 }
