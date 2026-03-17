@@ -1081,22 +1081,34 @@ function Build-PRDecorationTable($scanID) {
     $newTable = ""
     $fixedTable = ""
 
-    foreach ($issue in $newIssues | Select-Object -First 10) {
+   
+	foreach ($issue in $newIssues | Select-Object -First 10) {
 
+		# Try multiple fields
 		$url = $issue.Url
-		if (-not $url) { $url = $issue.VulnerableUrl }
 
-		# 🔗 AppScan issue link
+		if (-not $url) { $url = $issue.VulnerableUrl }
+		if (-not $url) { $url = $issue.Location }
+
+		# fallback
+		if (-not $url) { $url = "N/A" }
+
+		# AppScan scan link
 		$issueLink = "$env:INPUT_BASEURL/main/myapps/$env:INPUT_APPLICATION_ID/scans/$scanID"
 
-		# Optional: clean endpoint path
+		# Extract path if URL is valid
 		$endpoint = $url
 		try {
-			$endpoint = ([System.Uri]$url).AbsolutePath
+			if ($url -ne "N/A") {
+				$endpoint = ([System.Uri]$url).AbsolutePath
+			}
 		} catch {}
+			Write-Host "URL: $url"
+			Write-Host "VulnerableURL: $($issue.VulnerableUrl)"
+			Write-Host "Location: $($issue.Location)"
 
-		$newTable += "| $($issue.Severity) | $($issue.IssueType) | [$endpoint]($issueLink) | AppScan DAST |`n"
-	}
+		$newTable += "| $($issue.Severity) | $($issue.IssueType) | [$endpoint]($url) | AppScan DAST |`n"
+}
 
     foreach ($issue in $fixedIssues | Select-Object -First 10) {
 
