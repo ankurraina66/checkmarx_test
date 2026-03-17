@@ -1089,21 +1089,27 @@ function Build-PRDecorationTable($scanID) {
         $newTable += "| $($issue.Severity) | $($issue.IssueType) | $url | AppScan DAST |`n"
     }
 
-    foreach ($issue in $fixedIssues | Select-Object -First 10) {
+    foreach ($issue in $newIssues | Select-Object -First 10) {
 
-        $url = $issue.Url
-        if (-not $url) { $url = $issue.VulnerableUrl }
+		$url = $issue.Url
+		if (-not $url) { $url = $issue.VulnerableUrl }
 
-        $fixedTable += "| $($issue.Severity) | $($issue.IssueType) | $url |`n"
-    }
+		# 🔗 AppScan issue link
+		$issueLink = "$env:INPUT_BASEURL/main/myapps/$env:INPUT_APPLICATION_ID/scans/$scanID"
+
+		# Optional: clean endpoint path
+		$endpoint = $url
+		try {
+			$endpoint = ([System.Uri]$url).AbsolutePath
+		} catch {}
+
+    $newTable += "| $($issue.Severity) | $($issue.IssueType) | [$endpoint]($issueLink) | AppScan DAST |`n"
+}
 
 $markdown = @"
 <!-- appscan-dast-report -->
 
 # 🔎 HCL AppScan DAST Security Report
-
-## 🚨 Risk Level
-### $riskIcon **$riskLevel**
 
 ---
 
@@ -1117,7 +1123,7 @@ $markdown = @"
 
 ## 🆕 New Issues
 
-| Severity | Issue | Endpoint | Engine |
+| Severity | Issue Type | Location | Engine |
 |---|---|---|---|
 $newTable
 
@@ -1126,7 +1132,7 @@ $newTable
 <details>
 <summary>🛠 Fixed Issues</summary>
 
-| Severity | Issue | Endpoint |
+| Severity | Issue Type | Location |
 |---|---|---|
 $fixedTable
 
