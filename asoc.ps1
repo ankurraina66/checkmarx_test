@@ -297,7 +297,19 @@ $summary = @"
 <b>Scan Time:</b> $scanTime  
 <b>Repository:</b> $env:GITHUB_REPOSITORY  
 
-<h2>Total Vulnerabilities: $total</h2>
+<h2>Scan Information</h3>
+
+<table>
+<tr><td><b>Scanner</b></td><td>HCL AppScan</td></tr>
+<tr><td><b>Scan Type</b></td><td>DAST</td></tr>
+<tr><td><b>Vulnerability Count</b></td><td>$dastCount</td></tr>
+<td><b>Application</b></td>
+<td><a href="$appLink">$env:INPUT_APPLICATION_ID</a></td>
+</tr>
+<tr><td><b>Commit</b></td><td>$env:GITHUB_SHA</td></tr>
+</table>
+
+<h3>Total Vulnerabilities: $total</h2>
 
 <table>
 <tr>
@@ -314,30 +326,6 @@ $summary = @"
 <td align="center"><b>$low</b></td>
 <td align="center"><b>$info</b></td>
 </tr>
-</table>
-
-
-<h3>Scan Type</h3>
-
-<table>
-<tr>
-<th>DAST</th>
-</tr>
-<tr>
-<td align="center">$dastCount</td>
-</tr>
-</table>
-
-<h3>Scan Information</h3>
-
-<table>
-<tr><td><b>Scanner</b></td><td>HCL AppScan</td></tr>
-<tr><td><b>Scan Type</b></td><td>DAST</td></tr>
-<tr>
-<td><b>Application</b></td>
-<td><a href="$appLink">$env:INPUT_APPLICATION_ID</a></td>
-</tr>
-<tr><td><b>Commit</b></td><td>$env:GITHUB_SHA</td></tr>
 </table>
 
 <i>Job summary generated at runtime</i>
@@ -1123,7 +1111,7 @@ $markdown = @"
 
 ## 🆕 New Issues
 
-| Severity | Issue | Endpoint | Engine |
+| Severity | Issue | Location | Engine |
 |---|---|---|---|
 $newTable
 
@@ -1132,7 +1120,7 @@ $newTable
 <details>
 <summary>🛠 Fixed Issues</summary>
 
-| Severity | Issue | Endpoint |
+| Severity | Issue | Location |
 |---|---|---|
 $fixedTable
 
